@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AURA Vision - Fullscreen Face Detector</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Fullscreen Video Container -->
+  <div class="fullscreen-container">
+    <canvas id="view-canvas"></canvas>
+    
+    <div class="video-placeholder" id="video-placeholder">
+      <div class="spinner"></div>
+      <p>Connecting to Live Camera Stream...</p>
+    </div>
+
+    <!-- Floating Top Header Bar -->
+    <header class="floating-header">
+      <div class="brand">
+        <i class="fa-solid fa-eye-scan"></i>
+        <span>AURA VISION</span>
+      </div>
+      <div class="header-right">
+        <div class="status-pill" id="camera-status">
+          <span class="status-dot"></span>
+          <span id="camera-status-text">Connecting...</span>
+        </div>
+        <div class="fps-pill" id="fps-counter">0 FPS</div>
+        <button id="btn-snapshot" class="btn-snapshot" title="Take Snapshot">
+          <i class="fa-solid fa-camera"></i> Snapshot
+        </button>
+      </div>
+    </header>
+
+    <!-- Floating Bottom Controls Bar -->
+    <footer class="floating-footer">
+      <div class="footer-pill">
+        <i class="fa-solid fa-user"></i> Faces Detected: <strong id="face-count-val">0</strong>
+      </div>
+      <div class="footer-pill">
+        <i class="fa-solid fa-bolt"></i> Latency: <strong id="latency-val">-- ms</strong>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Snapshot Modal Gallery -->
+  <div class="modal-overlay" id="snapshot-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-camera"></i> Snapshot Captured</h3>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <img id="snapshot-img" src="" alt="Captured Frame">
+        <div class="snapshot-details" id="snapshot-details"></div>
+      </div>
+      <div class="modal-footer">
+        <a id="download-link" download="face-detection-snapshot.jpg" class="btn-download">
+          <i class="fa-solid fa-download"></i> Save Image
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
