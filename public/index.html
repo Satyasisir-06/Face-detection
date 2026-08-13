@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AURA Vision - Fullscreen Face Detector</title>
+  <title>AURA Vision - AI Face Detection</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,28 +11,31 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/style.css">
+  <!-- face-api.js for in-browser face detection -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js"></script>
 </head>
 <body>
 
   <!-- Fullscreen Video Container -->
   <div class="fullscreen-container">
+    <video id="video-feed" autoplay muted playsinline></video>
     <canvas id="view-canvas"></canvas>
-    
+
     <div class="video-placeholder" id="video-placeholder">
       <div class="spinner"></div>
-      <p>Connecting to Live Camera Stream...</p>
+      <p id="loading-text">Loading AI Models...</p>
     </div>
 
     <!-- Floating Top Header Bar -->
     <header class="floating-header">
       <div class="brand">
-        <i class="fa-solid fa-eye-scan"></i>
+        <i class="fa-solid fa-eye"></i>
         <span>AURA VISION</span>
       </div>
       <div class="header-right">
         <div class="status-pill" id="camera-status">
           <span class="status-dot"></span>
-          <span id="camera-status-text">Connecting...</span>
+          <span id="camera-status-text">Loading...</span>
         </div>
         <div class="fps-pill" id="fps-counter">0 FPS</div>
         <button id="btn-snapshot" class="btn-snapshot" title="Take Snapshot">
@@ -64,7 +67,7 @@
         <div class="snapshot-details" id="snapshot-details"></div>
       </div>
       <div class="modal-footer">
-        <a id="download-link" download="face-detection-snapshot.jpg" class="btn-download">
+        <a id="download-link" download="aura-vision-snapshot.jpg" class="btn-download">
           <i class="fa-solid fa-download"></i> Save Image
         </a>
       </div>

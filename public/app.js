@@ -1,15 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
   // DOM Elements
+  const video = document.getElementById('video-feed');
   const canvas = document.getElementById('view-canvas');
   const ctx = canvas.getContext('2d');
   const placeholder = document.getElementById('video-placeholder');
+  const loadingText = document.getElementById('loading-text');
   const cameraStatus = document.getElementById('camera-status');
   const cameraStatusText = document.getElementById('camera-status-text');
   const fpsCounter = document.getElementById('fps-counter');
   const faceCountVal = document.getElementById('face-count-val');
   const latencyVal = document.getElementById('latency-val');
   const btnSnapshot = document.getElementById('btn-snapshot');
-  
+
   // Modal Elements
   const snapshotModal = document.getElementById('snapshot-modal');
   const modalCloseBtn = document.getElementById('modal-close-btn');
@@ -20,103 +22,125 @@ document.addEventListener('DOMContentLoaded', () => {
   // State
   let frameCount = 0;
   let lastFpsCalcTime = performance.now();
-  let ws = null;
-  let latestPayload = null;
+  let latestDetections = [];
+  let modelsLoaded = false;
+  let detecting = false;
 
   // Emotion Emojis Map
   const emotionEmojis = {
-    'Happy': '😊',
-    'Neutral': '😐',
-    'Surprise': '😲',
-    'Sad': '😢',
-    'Angry': '😡',
-    'Fear': '😨',
-    'Disgust': '🤢'
+    'happy': '😊',
+    'neutral': '😐',
+    'surprised': '😲',
+    'sad': '😢',
+    'angry': '😡',
+    'fearful': '😨',
+    'disgusted': '🤢'
   };
 
-  // Adjust canvas size to window screen dimensions
-  function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+  const emotionLabels = {
+    'happy': 'Happy',
+    'neutral': 'Neutral',
+    'surprised': 'Surprise',
+    'sad': 'Sad',
+    'angry': 'Angry',
+    'fearful': 'Fear',
+    'disgusted': 'Disgust'
+  };
+
+  // MODEL_URL — face-api.js models hosted on jsDelivr CDN
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/model';
+
+  // ─── 1. Load AI Models ───────────────────────────────────────────────
+  async function loadModels() {
+    loadingText.textContent = 'Loading AI Models...';
+    try {
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+      ]);
+      modelsLoaded = true;
+      loadingText.textContent = 'Starting Camera...';
+      console.log('face-api.js models loaded successfully');
+    } catch (err) {
+      loadingText.textContent = 'Failed to load AI models. Please refresh.';
+      console.error('Model loading error:', err);
+    }
   }
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
 
-  // Connect WebSocket Stream
-  function connectWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/stream`;
-    
-    ws = new WebSocket(wsUrl);
+  // ─── 2. Start Browser Camera ─────────────────────────────────────────
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: false,
+      });
+      video.srcObject = stream;
+      await video.play();
 
-    ws.onopen = () => {
-      console.log('WebSocket Connected');
+      // Set canvas size to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
       placeholder.style.display = 'none';
       cameraStatus.classList.add('online');
-      cameraStatusText.textContent = 'Camera Streaming';
-    };
+      cameraStatusText.textContent = 'Camera Active';
 
-    ws.onmessage = (event) => {
-      const tStart = performance.now();
-      try {
-        const data = JSON.parse(event.data);
-        latestPayload = data;
-
-        if (data.image) {
-          renderFrame(data.image, data.faces, tStart);
-        }
-
-        if (data.is_real_camera) {
-          cameraStatusText.textContent = 'Hardware Webcam';
-        } else {
-          cameraStatusText.textContent = 'Virtual Stream';
-        }
-      } catch (err) {
-        console.error('Frame processing error:', err);
-      }
-    };
-
-    ws.onclose = () => {
-      placeholder.style.display = 'flex';
-      cameraStatus.classList.remove('online');
-      cameraStatusText.textContent = 'Reconnecting...';
-      setTimeout(connectWebSocket, 2000);
-    };
-
-    ws.onerror = (err) => {
-      console.error('WebSocket Error:', err);
-      ws.close();
-    };
+      // Start detection loop
+      detectLoop();
+    } catch (err) {
+      console.error('Camera access error:', err);
+      cameraStatusText.textContent = 'Camera Denied';
+      loadingText.textContent = '⚠️ Camera access denied. Please allow camera permission and refresh.';
+    }
   }
 
-  // Render Video Frame & Draw Face Bounding Boxes with Details at Bottom
-  function renderFrame(imgBase64, faces, receiveTime) {
-    const img = new Image();
-    img.onload = () => {
-      const cw = canvas.width;
-      const ch = canvas.height;
-      
-      // Draw background image stretched/scaled to cover screen
-      ctx.drawImage(img, 0, 0, cw, ch);
+  // ─── 3. Detection Loop ───────────────────────────────────────────────
+  async function detectLoop() {
+    if (!modelsLoaded || video.paused || video.ended) {
+      requestAnimationFrame(detectLoop);
+      return;
+    }
 
-      // Scale factors from original 640x480 frame to full screen canvas
-      const scaleX = cw / img.naturalWidth;
-      const scaleY = ch / img.naturalHeight;
+    // Skip if previous detection is still running
+    if (detecting) {
+      requestAnimationFrame(detectLoop);
+      return;
+    }
 
-      // Update Face Count & Latency Metrics
-      const count = faces ? faces.length : 0;
+    detecting = true;
+    const t0 = performance.now();
+
+    try {
+      const detections = await faceapi
+        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
+          inputSize: 320,
+          scoreThreshold: 0.45,
+        }))
+        .withAgeAndGender()
+        .withFaceExpressions();
+
+      latestDetections = detections;
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Update metrics
+      const count = detections.length;
       faceCountVal.textContent = count;
-      const latency = Math.round(performance.now() - receiveTime);
+      const latency = Math.round(performance.now() - t0);
       latencyVal.textContent = `${latency} ms`;
 
-      // Draw Face Boxes & Details Card attached to the bottom of the box
-      if (faces && faces.length > 0) {
-        faces.forEach((face) => {
-          drawFaceBoxWithDetails(face, scaleX, scaleY);
-        });
-      }
+      // Draw detections
+      detections.forEach((det) => {
+        drawFaceBox(det);
+      });
 
-      // Calculate FPS
+      // FPS calculation
       frameCount++;
       const now = performance.now();
       if (now - lastFpsCalcTime >= 1000) {
@@ -125,87 +149,105 @@ document.addEventListener('DOMContentLoaded', () => {
         frameCount = 0;
         lastFpsCalcTime = now;
       }
-    };
-    img.src = imgBase64;
+    } catch (err) {
+      console.error('Detection error:', err);
+    }
+
+    detecting = false;
+    requestAnimationFrame(detectLoop);
   }
 
-  // Draw Clean Box & Bottom Details Banner
-  function drawFaceBoxWithDetails(face, scaleX, scaleY) {
-    const origBox = face.box;
-    const x = origBox.x * scaleX;
-    const y = origBox.y * scaleY;
-    const w = origBox.w * scaleX;
-    const h = origBox.h * scaleY;
+  // ─── 4. Draw Face Bounding Box + Details Card ────────────────────────
+  function drawFaceBox(detection) {
+    const box = detection.detection.box;
+    const x = box.x;
+    const y = box.y;
+    const w = box.width;
+    const h = box.height;
+
+    const age = Math.round(detection.age);
+    const gender = detection.gender; // 'male' or 'female'
+    const genderProb = Math.round(detection.genderProbability * 100);
+    const genderLabel = gender === 'female' ? 'Female' : 'Male';
+
+    // Get dominant expression
+    const expressions = detection.expressions;
+    let topEmotion = 'neutral';
+    let topEmotionScore = 0;
+    for (const [emotion, score] of Object.entries(expressions)) {
+      if (score > topEmotionScore) {
+        topEmotion = emotion;
+        topEmotionScore = score;
+      }
+    }
+    const emotionConf = Math.round(topEmotionScore * 100);
+    const emoji = emotionEmojis[topEmotion] || '😐';
+    const emotionLabel = emotionLabels[topEmotion] || topEmotion;
 
     ctx.save();
 
-    // 1. Draw Clean Rectangle Bounding Box
-    const isFemale = face.gender === 'Female';
+    // Color by gender
+    const isFemale = gender === 'female';
     const primaryColor = isFemale ? '#ec4899' : '#38bdf8';
 
+    // Bounding box
     ctx.strokeStyle = primaryColor;
     ctx.lineWidth = 3;
     ctx.shadowColor = primaryColor;
     ctx.shadowBlur = 12;
     ctx.strokeRect(x, y, w, h);
 
-    // Corner Reticle Accents
+    // Corner accents
     const cornerSize = Math.min(w, h) * 0.2;
     ctx.lineWidth = 4;
-    
-    // Top-Left Corner Accent
+
+    // Top-left
     ctx.beginPath();
-    ctx.moveTo(x, y + cornerSize); ctx.lineTo(x, y); ctx.lineTo(x + cornerSize, y);
+    ctx.moveTo(x, y + cornerSize);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + cornerSize, y);
     ctx.stroke();
 
-    // Bottom-Right Corner Accent
+    // Bottom-right
     ctx.beginPath();
-    ctx.moveTo(x + w - cornerSize, y + h); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w, y + h - cornerSize);
+    ctx.moveTo(x + w - cornerSize, y + h);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x + w, y + h - cornerSize);
     ctx.stroke();
 
-    // 2. Draw Details Card Attached to the BOTTOM of the Box
-    const emoji = emotionEmojis[face.emotion] || '😐';
-    const ageText = `Age: ${face.age}`;
-    const genderText = `${face.gender}`;
-    const emotionText = `${emoji} ${face.emotion} (${face.emotion_confidence || 85}%)`;
-
-    // Card dimensions
+    // Details card below bounding box
     const cardPadding = 10;
     const cardHeight = 54;
-    const cardY = y + h + 6; // Placed right at the bottom edge of the box
+    const cardY = y + h + 6;
     const cardWidth = Math.max(w, 200);
-
-    // Keep card within canvas vertical bounds
     const finalCardY = (cardY + cardHeight > canvas.height) ? (y - cardHeight - 6) : cardY;
 
-    // Draw Dark Glass Banner at Bottom
+    // Dark glass card
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
     ctx.shadowBlur = 10;
-    
-    // Rounded Banner Box
     drawRoundedRect(ctx, x, finalCardY, cardWidth, cardHeight, 8);
     ctx.fill();
 
-    // Left Border Indicator Bar
+    // Left accent bar
     ctx.fillStyle = primaryColor;
     ctx.fillRect(x, finalCardY, 4, cardHeight);
 
-    // Text Details: Line 1 (Gender & Age)
+    // Line 1: Gender & Age
     ctx.shadowBlur = 0;
     ctx.font = 'bold 15px Inter, sans-serif';
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${genderText} • ${ageText}`, x + cardPadding + 4, finalCardY + 22);
+    ctx.fillText(`${genderLabel} (${genderProb}%) • Age: ${age}`, x + cardPadding + 4, finalCardY + 22);
 
-    // Text Details: Line 2 (Emotion & Confidence)
+    // Line 2: Emotion
     ctx.font = '500 13px Inter, sans-serif';
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(emotionText, x + cardPadding + 4, finalCardY + 42);
+    ctx.fillText(`${emoji} ${emotionLabel} (${emotionConf}%)`, x + cardPadding + 4, finalCardY + 42);
 
     ctx.restore();
   }
 
-  // Utility to draw rounded rectangles
+  // ─── 5. Rounded Rectangle Utility ────────────────────────────────────
   function drawRoundedRect(context, x, y, width, height, radius) {
     context.beginPath();
     context.moveTo(x + radius, y);
@@ -220,21 +262,51 @@ document.addEventListener('DOMContentLoaded', () => {
     context.closePath();
   }
 
-  // Snapshot Handling
+  // ─── 6. Snapshot ─────────────────────────────────────────────────────
   btnSnapshot.addEventListener('click', () => {
-    if (!latestPayload || !latestPayload.image) return;
+    // Create a composite snapshot: video + canvas overlay
+    const snapCanvas = document.createElement('canvas');
+    snapCanvas.width = video.videoWidth;
+    snapCanvas.height = video.videoHeight;
+    const snapCtx = snapCanvas.getContext('2d');
 
-    snapshotImg.src = canvas.toDataURL('image/jpeg');
-    downloadLink.href = snapshotImg.src;
+    // Draw mirrored video frame
+    snapCtx.save();
+    snapCtx.scale(-1, 1);
+    snapCtx.drawImage(video, -snapCanvas.width, 0, snapCanvas.width, snapCanvas.height);
+    snapCtx.restore();
 
-    if (latestPayload.faces && latestPayload.faces.length > 0) {
-      const f = latestPayload.faces[0];
-      const emoji = emotionEmojis[f.emotion] || '😐';
+    // Draw overlay (bounding boxes)
+    snapCtx.save();
+    snapCtx.scale(-1, 1);
+    snapCtx.drawImage(canvas, -snapCanvas.width, 0, snapCanvas.width, snapCanvas.height);
+    snapCtx.restore();
+
+    const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.92);
+    snapshotImg.src = dataUrl;
+    downloadLink.href = dataUrl;
+
+    // Fill details from latest detections
+    if (latestDetections.length > 0) {
+      const det = latestDetections[0];
+      const age = Math.round(det.age);
+      const gender = det.gender === 'female' ? 'Female' : 'Male';
+      const genderConf = Math.round(det.genderProbability * 100);
+
+      let topEmotion = 'neutral';
+      let topScore = 0;
+      for (const [emotion, score] of Object.entries(det.expressions)) {
+        if (score > topScore) { topEmotion = emotion; topScore = score; }
+      }
+      const emoji = emotionEmojis[topEmotion] || '😐';
+      const emotionLabel = emotionLabels[topEmotion] || topEmotion;
+
       snapshotDetails.innerHTML = `
         <strong>Detection Summary:</strong><br>
-        • Estimated Age: <strong>${f.age} years</strong><br>
-        • Gender: <strong>${f.gender}</strong> (${f.gender_confidence}% confidence)<br>
-        • Facial Emotion: <strong>${emoji} ${f.emotion}</strong> (${f.emotion_confidence}% confidence)
+        • Estimated Age: <strong>${age} years</strong><br>
+        • Gender: <strong>${gender}</strong> (${genderConf}% confidence)<br>
+        • Emotion: <strong>${emoji} ${emotionLabel}</strong> (${Math.round(topScore * 100)}% confidence)<br>
+        • Faces Detected: <strong>${latestDetections.length}</strong>
       `;
     } else {
       snapshotDetails.innerHTML = `No face detected in snapshot frame.`;
@@ -247,6 +319,13 @@ document.addEventListener('DOMContentLoaded', () => {
     snapshotModal.classList.remove('active');
   });
 
-  // Start App
-  connectWebSocket();
+  // ─── 7. Initialise ──────────────────────────────────────────────────
+  async function init() {
+    await loadModels();
+    if (modelsLoaded) {
+      await startCamera();
+    }
+  }
+
+  init();
 });

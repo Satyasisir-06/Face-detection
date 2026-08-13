@@ -31,11 +31,28 @@ html, body {
   background: #000;
 }
 
-#view-canvas {
+/* Hidden video element used as camera source */
+#video-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  display: block;
   object-fit: cover;
+  z-index: 1;
+  transform: scaleX(-1); /* Mirror for selfie view */
+}
+
+/* Canvas overlay for bounding boxes and labels */
+#view-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  transform: scaleX(-1); /* Mirror to match video */
 }
 
 .video-placeholder {
@@ -80,6 +97,7 @@ html, body {
   pointer-events: auto;
   background: var(--panel-bg);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--panel-border);
   padding: 0.6rem 1.2rem;
   border-radius: 30px;
@@ -101,11 +119,14 @@ html, body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .status-pill {
   background: var(--panel-bg);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--panel-border);
   padding: 0.5rem 1rem;
   border-radius: 20px;
@@ -131,6 +152,7 @@ html, body {
 .fps-pill {
   background: var(--panel-bg);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--panel-border);
   padding: 0.5rem 0.9rem;
   border-radius: 20px;
@@ -153,6 +175,7 @@ html, body {
   gap: 0.5rem;
   box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  pointer-events: auto;
 }
 
 .btn-snapshot:hover {
@@ -174,11 +197,13 @@ html, body {
 .footer-pill {
   background: var(--panel-bg);
   backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--panel-border);
   padding: 0.45rem 1rem;
   border-radius: 20px;
   font-size: 0.82rem;
   color: #cbd5e1;
+  white-space: nowrap;
 }
 
 .footer-pill strong {
@@ -191,6 +216,7 @@ html, body {
   inset: 0;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: none;
   justify-content: center;
   align-items: center;
@@ -255,13 +281,6 @@ html, body {
   color: #cbd5e1;
 }
 
-.modal-footer {
-  padding: 1rem 1.25rem;
-  border-top: 1px solid var(--panel-border);
-  display: flex;
-  justify-content: flex-end;
-}
-
 .btn-download {
   background: var(--primary);
   color: #0f172a;
@@ -270,4 +289,42 @@ html, body {
   border-radius: 10px;
   font-weight: 700;
   font-size: 0.85rem;
+}
+
+.modal-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .floating-header {
+    top: 0.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  .header-right {
+    gap: 0.4rem;
+  }
+  .brand {
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+  }
+  .status-pill, .fps-pill {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.7rem;
+  }
+  .btn-snapshot {
+    font-size: 0.75rem;
+    padding: 0.45rem 0.9rem;
+  }
+  .footer-pill {
+    font-size: 0.72rem;
+    padding: 0.35rem 0.7rem;
+  }
 }
