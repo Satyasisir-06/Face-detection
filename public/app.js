@@ -160,7 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── 4. Draw Face Bounding Box + Details Card ────────────────────────
   function drawFaceBox(detection) {
     const box = detection.detection.box;
-    const x = box.x;
+    // Mirror the x-coordinate so bounding box aligns with CSS-mirrored video
+    const x = canvas.width - box.x - box.width;
     const y = box.y;
     const w = box.width;
     const h = box.height;
@@ -190,22 +191,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const isFemale = gender === 'female';
     const primaryColor = isFemale ? '#ec4899' : '#38bdf8';
 
+    // Scale font sizes relative to face box (looks good at any zoom level)
+    const baseFontSize = Math.max(11, Math.min(16, w * 0.07));
+    const smallFontSize = Math.max(9, baseFontSize - 2);
+
     // Bounding box
     ctx.strokeStyle = primaryColor;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.shadowColor = primaryColor;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 10;
     ctx.strokeRect(x, y, w, h);
 
     // Corner accents
-    const cornerSize = Math.min(w, h) * 0.2;
-    ctx.lineWidth = 4;
+    const cornerSize = Math.min(w, h) * 0.18;
+    ctx.lineWidth = 3;
 
     // Top-left
     ctx.beginPath();
     ctx.moveTo(x, y + cornerSize);
     ctx.lineTo(x, y);
     ctx.lineTo(x + cornerSize, y);
+    ctx.stroke();
+
+    // Top-right
+    ctx.beginPath();
+    ctx.moveTo(x + w - cornerSize, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w, y + cornerSize);
+    ctx.stroke();
+
+    // Bottom-left
+    ctx.beginPath();
+    ctx.moveTo(x, y + h - cornerSize);
+    ctx.lineTo(x, y + h);
+    ctx.lineTo(x + cornerSize, y + h);
     ctx.stroke();
 
     // Bottom-right
@@ -216,33 +235,34 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.stroke();
 
     // Details card below bounding box
-    const cardPadding = 10;
-    const cardHeight = 54;
-    const cardY = y + h + 6;
-    const cardWidth = Math.max(w, 200);
-    const finalCardY = (cardY + cardHeight > canvas.height) ? (y - cardHeight - 6) : cardY;
+    const cardPadding = 8;
+    const cardHeight = Math.max(40, baseFontSize * 3.4);
+    const cardY = y + h + 5;
+    const cardWidth = Math.max(w, baseFontSize * 14);
+    const finalCardY = (cardY + cardHeight > canvas.height) ? (y - cardHeight - 5) : cardY;
 
     // Dark glass card
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 8;
     ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-    ctx.shadowBlur = 10;
-    drawRoundedRect(ctx, x, finalCardY, cardWidth, cardHeight, 8);
+    drawRoundedRect(ctx, x, finalCardY, cardWidth, cardHeight, 6);
     ctx.fill();
 
     // Left accent bar
     ctx.fillStyle = primaryColor;
-    ctx.fillRect(x, finalCardY, 4, cardHeight);
+    ctx.shadowBlur = 0;
+    drawRoundedRect(ctx, x, finalCardY, 3, cardHeight, 3);
+    ctx.fill();
 
     // Line 1: Gender & Age
-    ctx.shadowBlur = 0;
-    ctx.font = 'bold 15px Inter, sans-serif';
+    ctx.font = `bold ${baseFontSize}px Inter, sans-serif`;
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(`${genderLabel} (${genderProb}%) • Age: ${age}`, x + cardPadding + 4, finalCardY + 22);
+    ctx.fillText(`${genderLabel} (${genderProb}%) • Age: ${age}`, x + cardPadding + 4, finalCardY + baseFontSize + 4);
 
     // Line 2: Emotion
-    ctx.font = '500 13px Inter, sans-serif';
+    ctx.font = `500 ${smallFontSize}px Inter, sans-serif`;
     ctx.fillStyle = '#cbd5e1';
-    ctx.fillText(`${emoji} ${emotionLabel} (${emotionConf}%)`, x + cardPadding + 4, finalCardY + 42);
+    ctx.fillText(`${emoji} ${emotionLabel} (${emotionConf}%)`, x + cardPadding + 4, finalCardY + baseFontSize * 2 + 6);
 
     ctx.restore();
   }
