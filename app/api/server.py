@@ -133,8 +133,6 @@ async def websocket_stream(websocket: WebSocket):
 
 # Mount Static Files (Frontend UI)
 public_dir = Path(__file__).parent.parent.parent / "public"
-if public_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(public_dir)), name="static")
 
 @app.get("/")
 async def read_index():
@@ -142,3 +140,7 @@ async def read_index():
     if index_file.exists():
         return FileResponse(str(index_file))
     return JSONResponse(content={"message": "Face Recog API backend running. Public folder not found."})
+
+# Mount static at root so paths like /style.css and /app.js work (matches Vercel CDN behavior)
+if public_dir.exists():
+    app.mount("/", StaticFiles(directory=str(public_dir)), name="static")
