@@ -1,9 +1,32 @@
-# 📜 Comprehensive Project Documentation & Industry Blueprint
+# 📜 Academic Project Documentation & Technical Record
 
-## Project Name: AURA Vision - Real-time AI Face Detection & Demographic Analytics System
-**Repository URL**: `https://github.com/Satyasisir-06/Face-detection.git`  
-**Version**: 1.0.0  
-**Authors/Maintainers**: Satyasisir-06 & AURA Vision Engineering Team  
+## Project Title: Aura Vision: AI-Powered Real-Time Computer Vision and Intelligent Visual Analysis
+**Institution**: Chaitanya Engineering College, Kommadi, Visakhapatnam  
+**Affiliation**: Approved by AICTE, New Delhi & Affiliated to JNTU-GV, Vizianagaram (NBA & NAAC Accredited)  
+**Program**: B.Tech III Year I Semester — Department of Artificial Intelligence  
+**Regulation**: JNTUGV-BTECH-R23  
+**Repository**: `https://github.com/Satyasisir-06/Face-detection.git`  
+
+---
+
+### 🎓 Academic Project Supervision & Team Details
+
+**Under the Guidance of:**  
+- **Mrs. NIKHILA**, Assistant Professor, Department of Artificial Intelligence
+
+**Submitted by (Student Team):**  
+| Student Name | Hall Ticket / Registration Number | Primary Responsibility |
+| :--- | :--- | :--- |
+| **M. BHARGAVI** | `24L61A4220` | Vision Pipeline & DeepFace Neural Inference Engine; RGB Color Space Alignment |
+| **P. DEEPIKA** | `24L61A4223` | Anti-Jitter Smoothing; 30-Frame Sliding Window Majority Gender Latching; EMA Filter |
+| **R. REESHMA** | `24L61A4227` | Face Detection Optimization; Haar Cascade Dynamic 25% Context Padding |
+| **M. SAI SRAVANTH** | `24L61A4217` | Asynchronous FastAPI Server Architecture; Full-Duplex 25 FPS WebSocket Streaming |
+| **M. MOHAN SAI** | `24L61A4218` | Multi-Threaded Video Ingestion Daemon; Synthetic Fallback Generator; Test Suite |
+
+**Generated Publication Artifacts:**  
+- 📄 **Word Document Record**: [`AURA_VISION_PROJECT_RECORD.docx`](file:///e:/Projects/Face%20Recog/AURA_VISION_PROJECT_RECORD.docx) (26 Pages, Embedded Tables & High-Res Figures)  
+- 📑 **Printable PDF Record**: [`AURA_VISION_PROJECT_RECORD.pdf`](file:///e:/Projects/Face%20Recog/AURA_VISION_PROJECT_RECORD.pdf) (Official JNTU-GV Format with Certificate & Signature Blocks)  
+
 
 ---
 
@@ -68,12 +91,13 @@ Furthermore, this document presents a blueprint for upgrading AURA Vision into a
    - **Dynamic Bounding Box Padding**: Expands face bounding boxes by **25%** on all sides (`pad_x`, `pad_y`) to capture forehead, chin, and hair features critical for gender and age neural networks.
 
 3. **`analyzer.py` (`FaceAnalyzer` Class)**:
+   - **Facenet 128D Embedding & Suspect Identification**: Compares query face crops against enrolled watchlist profiles using cosine distance metric ($d = 1.0 - \cos(\theta)$) with threshold $0.42$. Automatically flags enrolled suspects (**Sailu**, **Deepika**) with critical threat levels, and verifies authorized team members (**Bhargavi**, **Jhansi**, **Reeshma**).
    - **Color Space Alignment**: Crucially converts OpenCV's native BGR crop to RGB (`cv2.COLOR_BGR2RGB`) prior to sending data to DeepFace neural models.
-   - **DeepFace Neural Network Pre-warming**: Pre-warms weights on app startup to prevent first-inference delay.
+   - **DeepFace Neural Network Pre-warming**: Pre-warms Facenet model on app startup; demography models are warmed up asynchronously.
    - **Predictive Smoothing & Jitter Reduction**:
      - *Majority Gender Latching*: Keeps a sliding window of 30 frames (`deque(maxlen=30)`). Gender classification (`Male` / `Female`) is locked to the majority vote in the window to prevent frame-to-frame flicker.
      - *Exponential Moving Average (EMA)*: Applies smooth weighting ($\alpha = 0.25$) across sequential frames for age and emotion probability distributions.
-   - **Fallback Vision Engine**: If DeepFace is initializing or disabled, uses deterministic feature extraction (pixel variance and luminance analysis) to ensure system uninterrupted operation.
+   - **Fallback Vision Engine**: If DeepFace is initializing or disabled, uses deterministic feature extraction (pixel variance and luminance analysis) to ensure uninterrupted operation.
 
 #### B. API & Server Layer (`app/api/`)
 
@@ -81,16 +105,24 @@ Furthermore, this document presents a blueprint for upgrading AURA Vision into a
    - **CORS Middleware**: Fully enabled for seamless local network or web integration.
    - **Lifecycle Management**: Triggers `camera.start()` on `@app.on_event("startup")` and `camera.stop()` on shutdown.
    - **Endpoints**:
-     - `GET /api/status`: Returns JSON status including real vs virtual camera state, DeepFace availability, and server timestamp.
+     - `GET /api/status`: Returns JSON status including real vs virtual camera state, DeepFace availability, enrolled suspects count, and server timestamp.
+     - `GET /api/members`: Returns enrolled watchlist members with their suspect designation, threat levels, and profile images.
+     - `POST /api/identify`: Receives image frames/crops, performs multi-face detection, runs Facenet embeddings matching, and returns suspects alerts and demographics.
      - `GET /api/snapshot`: Captures the latest frame, detects faces, runs analysis, and returns a high-quality JPEG base64 payload alongside detailed face metadata.
      - `WS /ws/stream`: Persistent WebSocket connection pushing frame buffers and structured face detection lists at up to 25 FPS.
      - `GET /`: Serves static web frontend files.
+     - `GET /members/*`: Serves enrolled watchlist profile images.
 
 #### C. Web Interface (`public/`)
 
-1. **`index.html`**: Fullscreen glassmorphic design housing an HTML5 `<canvas id="view-canvas">`, floating status pill header, latency metrics, and snapshot preview modal.
-2. **`style.css`**: Built with CSS variables, backdrop blur filters (`glassmorphism`), flex layouts, and custom reticle aesthetics.
-3. **`app.js`**: Connects to `/ws/stream`, scales backend coordinates (640x480) dynamically to client screen resolution, draws bounding boxes, corner reticles, color-coded gender accents (Blue for Male, Pink for Female), and renders floating bottom detail cards.
+1. **`index.html`**: Fullscreen glassmorphic design housing an HTML5 `<canvas id="view-canvas">`, floating status pill header, top security BOLO alert banner, interactive watchlist dock, latency metrics, and snapshot preview modal.
+2. **`style.css`**: Built with CSS variables, backdrop blur filters (`glassmorphism`), flex layouts, pulsating crimson alerts for suspects, emerald glowing reticles for authorized members, and custom reticle aesthetics.
+3. **`app.js`**: Dual-mode engine supporting real-time live webcam streaming AND interactive watchlist test profiles:
+   - Enrolls 5 reference profiles on startup (**Sailu [Suspect]**, **Deepika [Suspect]**, **Bhargavi [Member]**, **Jhansi [Member]**, **Reeshma [Member]**).
+   - Computes facial descriptors via `face-api.js` ResNet embeddings and constructs a real-time `FaceMatcher`.
+   - Draws **CRIMSON RED RETICLES** and triggers audio-visual alarms when **Sailu** or **Deepika** are detected.
+   - Draws **EMERALD GREEN RETICLES** with verified clearance badges when **Bhargavi**, **Jhansi**, or **Reeshma** are detected.
+   - Allows instant one-click testing of each member photo or custom image upload.
 
 ---
 

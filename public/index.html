@@ -3,36 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AURA Vision - AI Face Detection</title>
+  <title>AURA Vision - Suspect Identification & Face Recognition System</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/style.css">
-  <!-- face-api.js for in-browser face detection -->
+  <!-- face-api.js for client-side real-time face detection & recognition -->
   <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.14/dist/face-api.js"></script>
 </head>
 <body>
 
-  <!-- Fullscreen Video Container -->
+  <!-- Fullscreen Video & Canvas Container -->
   <div class="fullscreen-container">
     <video id="video-feed" autoplay muted playsinline></video>
+    <img id="image-feed" style="display:none;" alt="Test Image">
     <canvas id="view-canvas"></canvas>
 
     <div class="video-placeholder" id="video-placeholder">
       <div class="spinner"></div>
-      <p id="loading-text">Loading AI Models...</p>
+      <p id="loading-text">Starting Camera & AI Vision...</p>
+    </div>
+
+    <!-- Camera Access / Permission Banner -->
+    <div class="camera-error-banner" id="camera-error-banner" style="display:none;">
+      <i class="fa-solid fa-camera-slash"></i>
+      <div class="camera-error-msg">
+        <strong>Camera Permission Needed:</strong> Click the 🎥 or 🔒 icon in your browser address bar to <strong>Allow Camera</strong>, then click <strong>Retry</strong>.
+      </div>
+      <button class="btn-retry-camera" id="btn-retry-camera"><i class="fa-solid fa-rotate-right"></i> Retry Camera</button>
     </div>
 
     <!-- Floating Top Header Bar -->
     <header class="floating-header">
       <div class="brand">
-        <i class="fa-solid fa-eye"></i>
-        <span>AURA VISION</span>
+        <i class="fa-solid fa-shield-halved"></i>
+        <div class="brand-text">
+          <span class="brand-title">AURA VISION</span>
+          <span class="brand-tag">SUSPECT & THREAT DETECTION</span>
+        </div>
       </div>
       <div class="header-right">
+        <div class="status-pill watchlist-pill" id="watchlist-pill" title="Enrolled Watchlist Database">
+          <i class="fa-solid fa-bell"></i>
+          <span id="watchlist-text">Watchlist: 2 Suspects | 3 Members</span>
+        </div>
         <div class="status-pill" id="camera-status">
           <span class="status-dot"></span>
           <span id="camera-status-text">Loading...</span>
@@ -44,10 +61,64 @@
       </div>
     </header>
 
-    <!-- Floating Bottom Controls Bar -->
+    <!-- Top Security Alert Banner (Triggered on Suspect Detection) -->
+    <div class="suspect-alert-banner" id="suspect-alert-banner">
+      <div class="alert-content">
+        <i class="fa-solid fa-triangle-exclamation alert-icon"></i>
+        <div class="alert-text-block">
+          <div class="alert-headline">🚨 SECURITY ALERT: WANTED SUSPECT IDENTIFIED!</div>
+          <div class="alert-sub" id="alert-sub-text">Watchlist Match: SAILU • Threat Level: CRITICAL • Intercept Protocol Active</div>
+        </div>
+      </div>
+      <button class="alert-dismiss" id="alert-dismiss-btn" title="Dismiss Alert">&times;</button>
+    </div>
+
+    <!-- Watchlist Quick-Test Dock (Bottom-Right / Interactive Profile Switcher) -->
+    <div class="watchlist-dock" id="watchlist-dock">
+      <div class="dock-header">
+        <span><i class="fa-solid fa-users-viewfinder"></i> Watchlist Database & Profiles</span>
+        <button class="dock-toggle-btn" id="dock-toggle-btn" title="Toggle Dock"><i class="fa-solid fa-chevron-down"></i></button>
+      </div>
+      <div class="dock-chips" id="dock-chips">
+        <button class="dock-chip chip-suspect" data-id="sailu" title="Test Suspect Sailu">
+          <img src="/members/sailu.jpeg" alt="Sailu" class="chip-avatar avatar-suspect">
+          <span class="chip-label">🚨 Sailu <small>(Suspect)</small></span>
+        </button>
+        <button class="dock-chip chip-suspect" data-id="deepika" title="Test Suspect Deepika">
+          <img src="/members/deepika.jpeg" alt="Deepika" class="chip-avatar avatar-suspect">
+          <span class="chip-label">🚨 Deepika <small>(Suspect)</small></span>
+        </button>
+        <button class="dock-chip chip-member" data-id="bhargavi" title="Test Member Bhargavi">
+          <img src="/members/bhargavi.jpeg" alt="Bhargavi" class="chip-avatar avatar-member">
+          <span class="chip-label">✅ Bhargavi <small>(Member)</small></span>
+        </button>
+        <button class="dock-chip chip-member" data-id="jhansi" title="Test Member Jhansi">
+          <img src="/members/jhansi.jpeg" alt="Jhansi" class="chip-avatar avatar-member">
+          <span class="chip-label">✅ Jhansi <small>(Member)</small></span>
+        </button>
+        <button class="dock-chip chip-member" data-id="reeshma" title="Test Member Reeshma">
+          <img src="/members/reeshma.jpeg" alt="Reeshma" class="chip-avatar avatar-member">
+          <span class="chip-label">✅ Reeshma <small>(Member)</small></span>
+        </button>
+        <button class="dock-chip chip-live active" id="btn-live-cam" title="Switch to Live Webcam">
+          <i class="fa-solid fa-video chip-icon"></i>
+          <span class="chip-label">Live Camera</span>
+        </button>
+        <label class="dock-chip chip-upload" title="Upload Custom Photo to Test">
+          <input type="file" id="upload-input" accept="image/*" style="display:none;">
+          <i class="fa-solid fa-arrow-up-from-bracket chip-icon"></i>
+          <span class="chip-label">Upload Photo</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Floating Bottom Status Bar -->
     <footer class="floating-footer">
       <div class="footer-pill">
         <i class="fa-solid fa-user"></i> Faces Detected: <strong id="face-count-val">0</strong>
+      </div>
+      <div class="footer-pill" id="security-status-pill">
+        <i class="fa-solid fa-shield"></i> Security Status: <strong id="security-status-val">MONITORING</strong>
       </div>
       <div class="footer-pill">
         <i class="fa-solid fa-bolt"></i> Latency: <strong id="latency-val">-- ms</strong>
@@ -59,7 +130,7 @@
   <div class="modal-overlay" id="snapshot-modal">
     <div class="modal-card">
       <div class="modal-header">
-        <h3><i class="fa-solid fa-camera"></i> Snapshot Captured</h3>
+        <h3><i class="fa-solid fa-camera"></i> Surveillance Snapshot Captured</h3>
         <button class="modal-close" id="modal-close-btn">&times;</button>
       </div>
       <div class="modal-body">
@@ -67,8 +138,8 @@
         <div class="snapshot-details" id="snapshot-details"></div>
       </div>
       <div class="modal-footer">
-        <a id="download-link" download="aura-vision-snapshot.jpg" class="btn-download">
-          <i class="fa-solid fa-download"></i> Save Image
+        <a id="download-link" download="aura-vision-surveillance.jpg" class="btn-download">
+          <i class="fa-solid fa-download"></i> Save Surveillance Image
         </a>
       </div>
     </div>

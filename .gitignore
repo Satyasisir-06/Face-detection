@@ -39,3 +39,8 @@ Thumbs.db
 
 # Models & downloaded data
 app/vision/data/*.xml
+
+# Scratch & agent temporary files
+.agent_scratch/
+scratch_helpers.py
+

@@ -33,6 +33,11 @@ class CameraStream:
         logger.info("Camera stream thread started.")
 
     def _init_camera(self):
+        if self.camera_id < 0:
+            self.is_real_camera = False
+            logger.info("Camera device set to virtual mode (releasing hardware device for browser).")
+            return
+
         try:
             self.cap = cv2.VideoCapture(self.camera_id)
             if not self.cap.isOpened():
